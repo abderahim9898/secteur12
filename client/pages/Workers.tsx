@@ -954,6 +954,70 @@ export default function Workers() {
           dateEntree: formData.dateEntree || editingWorker.dateEntree
         };
 
+        // Process allocated items changes during edit
+        const processAllocatedItemsChanges = () => {
+          const currentAllocated = new Set(
+            (editingWorker.allocatedItems || [])
+              .filter(item => item.status === 'allocated')
+              .map(item => item.itemName)
+          );
+
+          const newAllocated = new Set(
+            Object.entries(formData.allocatedItems)
+              .filter(([_, isAllocated]) => isAllocated)
+              .map(([itemName, _]) => itemName)
+          );
+
+          const updatedItems: AllocatedItem[] = [];
+
+          // Process all existing items
+          for (const item of (editingWorker.allocatedItems || [])) {
+            if (item.status === 'returned') {
+              // Keep returned items as is
+              updatedItems.push(item);
+            } else if (item.status === 'allocated') {
+              // Check if this item is still selected
+              if (newAllocated.has(item.itemName)) {
+                // Keep allocated item
+                updatedItems.push(item);
+              } else {
+                // Mark as returned (user unchecked it)
+                updatedItems.push({
+                  ...item,
+                  status: 'returned',
+                  returnedAt: new Date().toISOString()
+                });
+              }
+            } else {
+              updatedItems.push(item);
+            }
+          }
+
+          // Add new allocations (items that are now selected but weren't before)
+          for (const itemName of newAllocated) {
+            if (!currentAllocated.has(itemName)) {
+              // This is a new allocation
+              const stock = getStockByItemName(itemName, formData.fermeId || editingWorker.fermeId);
+              if (stock) {
+                updatedItems.push({
+                  id: `alloc_${Date.now()}_${itemName}`,
+                  itemName,
+                  allocatedAt: new Date().toISOString(),
+                  allocatedBy: user?.uid || '',
+                  stockItemId: stock.id,
+                  fermeId: formData.fermeId || editingWorker.fermeId,
+                  status: 'allocated'
+                });
+              }
+            }
+          }
+
+          return updatedItems;
+        };
+
+        // Apply allocated items changes
+        updateData.allocatedItems = processAllocatedItemsChanges();
+
         // Check if entry date has been modified
         const entryDateChanged = formData.dateEntree && formData.dateEntree !== editingWorker.dateEntree;
 
