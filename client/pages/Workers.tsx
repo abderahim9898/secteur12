@@ -4595,13 +4595,29 @@ export default function Workers() {
                     </TableHeader>
                     <TableBody>
                       {paginatedWorkers.map((worker) => (
-                        <TableRow key={worker.id}>
+                        <TableRow
+                          key={worker.id}
+                          className={selectedWorkers.has(worker.id) ? 'bg-blue-50 hover:bg-blue-100' : ''}
+                        >
                           <TableCell>
-                            <Checkbox
-                              checked={selectedWorkers.has(worker.id)}
-                              onCheckedChange={(checked) => handleSelectWorker(worker.id, !!checked)}
-                              aria-label={`Sélectionner ${worker.nom}`}
-                            />
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={selectedWorkers.has(worker.id)}
+                                onCheckedChange={(checked) => handleSelectWorker(worker.id, !!checked)}
+                                aria-label={`Sélectionner ${worker.nom}`}
+                              />
+                              {selectedWorkers.has(worker.id) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(worker)}
+                                  className="h-8"
+                                  title="Modifier cet ouvrier"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>{worker.matricule || '-'}</TableCell>
                           <TableCell className="font-medium">{worker.nom}</TableCell>
