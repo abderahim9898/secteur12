@@ -1600,6 +1600,8 @@ export default function Stock() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openEditDialog(stock)}
+                                disabled={isUser}
+                                title={isUser ? "Non autorisé pour les utilisateurs" : "Modifier"}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -1607,6 +1609,8 @@ export default function Stock() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDeleteStock(stock.id)}
+                                disabled={isUser}
+                                title={isUser ? "Non autorisé pour les utilisateurs" : "Supprimer"}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
