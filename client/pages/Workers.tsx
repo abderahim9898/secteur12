@@ -1017,6 +1017,12 @@ export default function Workers() {
 
         // Apply allocated items changes
         updateData.allocatedItems = processAllocatedItemsChanges();
+        console.log('📦 Allocated items updated during edit:', {
+          total: updateData.allocatedItems.length,
+          allocated: updateData.allocatedItems.filter(i => i.status === 'allocated').length,
+          returned: updateData.allocatedItems.filter(i => i.status === 'returned').length,
+          items: updateData.allocatedItems.map(i => ({ itemName: i.itemName, status: i.status }))
+        });
 
         // Check if entry date has been modified
         const entryDateChanged = formData.dateEntree && formData.dateEntree !== editingWorker.dateEntree;
