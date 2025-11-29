@@ -511,7 +511,9 @@ export default function Workers() {
   // Filter workers based on user role and filters
   const filteredWorkers = allWorkers.filter(worker => {
     // Role-based filtering
-    if (!isSuperAdmin && user?.fermeId) {
+    // Show all workers if: superadmin OR admin with all-farms access
+    // Otherwise, show only workers from the user's assigned farm
+    if (!isSuperAdmin && user?.fermeId && user.fermeId !== 'all') {
       if (worker.fermeId !== user.fermeId) return false;
     }
 
