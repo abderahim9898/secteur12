@@ -1084,11 +1084,11 @@ export default function Workers() {
           updateData.dateSortie = formData.dateSortie;
           updateData.statut = 'inactif'; // Automatically set to inactive when exit date is added
 
-          // Return allocated items to stock when worker exits
-          if (editingWorker.allocatedItems && editingWorker.allocatedItems.length > 0) {
+          // Return all allocated items when worker exits
+          if (updateData.allocatedItems && updateData.allocatedItems.length > 0) {
             const returnedItems: AllocatedItem[] = [];
 
-            for (const allocatedItem of editingWorker.allocatedItems) {
+            for (const allocatedItem of updateData.allocatedItems) {
               if (allocatedItem.status === 'allocated') {
                 // Mark item as returned
                 returnedItems.push({
