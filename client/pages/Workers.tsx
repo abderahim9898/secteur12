@@ -3644,6 +3644,7 @@ export default function Workers() {
                             }}
                             className="pl-10"
                             min={formData.dateEntree}
+                            max={new Date().toISOString().split('T')[0]}
                           />
                         </div>
                       </div>
