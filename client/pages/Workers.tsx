@@ -197,6 +197,8 @@ export default function Workers() {
     LIT: false,
     PLACARD: false
   });
+  const [isBulkDepartureDateDialogOpen, setIsBulkDepartureDateDialogOpen] = useState(false);
+  const [bulkDepartureDates, setBulkDepartureDates] = useState<{[workerId: string]: {date: string, reason: string}}>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [autoFilledWorker, setAutoFilledWorker] = useState<string>(''); // Name of auto-filled worker
