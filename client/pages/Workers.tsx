@@ -4765,6 +4765,15 @@ export default function Workers() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={handleBulkDepartureDateOpen}
+                    className="text-orange-600 hover:text-orange-700 border-orange-200 h-9 text-sm"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Sorties
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleBulkTransfer}
                     className="text-green-600 hover:text-green-700 border-green-200 h-9 text-sm"
                   >
