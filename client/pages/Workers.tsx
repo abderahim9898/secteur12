@@ -966,8 +966,10 @@ export default function Workers() {
 
         // Process allocated items changes during edit
         const processAllocatedItemsChanges = () => {
+          const editingWorkerAllocations = Array.isArray(editingWorker.allocatedItems) ? editingWorker.allocatedItems : [];
+
           const currentAllocated = new Set(
-            (editingWorker.allocatedItems || [])
+            editingWorkerAllocations
               .filter(item => item.status === 'allocated')
               .map(item => item.itemName)
           );
@@ -981,7 +983,7 @@ export default function Workers() {
           const updatedItems: AllocatedItem[] = [];
 
           // Process all existing items
-          for (const item of (editingWorker.allocatedItems || [])) {
+          for (const item of editingWorkerAllocations) {
             if (item.status === 'returned') {
               // Keep returned items as is
               updatedItems.push(item);
