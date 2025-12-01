@@ -2652,8 +2652,9 @@ export default function Workers() {
 
           // Return all allocated items when worker exits
           const returnedItems: AllocatedItem[] = [];
-          if (worker.allocatedItems && worker.allocatedItems.length > 0) {
-            for (const allocatedItem of worker.allocatedItems) {
+          const allocatedItemsArray = Array.isArray(worker.allocatedItems) ? worker.allocatedItems : [];
+          if (allocatedItemsArray.length > 0) {
+            for (const allocatedItem of allocatedItemsArray) {
               if (allocatedItem.status === 'allocated') {
                 returnedItems.push({
                   ...allocatedItem,
