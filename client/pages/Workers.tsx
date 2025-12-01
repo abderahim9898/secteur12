@@ -1103,7 +1103,7 @@ export default function Workers() {
           updateData.statut = 'inactif'; // Automatically set to inactive when exit date is added
 
           // Return all allocated items when worker exits
-          if (updateData.allocatedItems && updateData.allocatedItems.length > 0) {
+          if (Array.isArray(updateData.allocatedItems) && updateData.allocatedItems.length > 0) {
             const returnedItems: AllocatedItem[] = [];
 
             for (const allocatedItem of updateData.allocatedItems) {
