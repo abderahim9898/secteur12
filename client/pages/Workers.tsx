@@ -2593,6 +2593,159 @@ export default function Workers() {
     }
   };
 
+  const handleBulkDepartureDateOpen = () => {
+    if (selectedWorkers.size === 0) return;
+
+    // Initialize departure dates form with empty values for each selected worker
+    const selectedWorkersArray = allWorkers.filter(w => selectedWorkers.has(w.id));
+    const newBulkDepartureDates: {[workerId: string]: {date: string, reason: string}} = {};
+
+    selectedWorkersArray.forEach(worker => {
+      newBulkDepartureDates[worker.id] = {
+        date: '',
+        reason: 'none'
+      };
+    });
+
+    setBulkDepartureDates(newBulkDepartureDates);
+    setIsBulkDepartureDateDialogOpen(true);
+  };
+
+  const handleBulkDepartureDateConfirm = async () => {
+    if (selectedWorkers.size === 0) return;
+
+    try {
+      setLoading(true);
+      const selectedWorkersArray = Array.from(allWorkers.filter(w => selectedWorkers.has(w.id)));
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Process each selected worker
+      for (const worker of selectedWorkersArray) {
+        try {
+          const departureDateInfo = bulkDepartureDates[worker.id];
+
+          // Skip if no date provided
+          if (!departureDateInfo || !departureDateInfo.date) {
+            continue;
+          }
+
+          const departureDate = new Date(departureDateInfo.date);
+          const entryDate = new Date(worker.dateEntree);
+
+          // Validate departure date is not before entry date
+          if (departureDate < entryDate) {
+            errors.push(`${worker.nom}: La date de sortie doit être après la date d'entrée (${new Date(worker.dateEntree).toLocaleDateString('fr-FR')})`);
+            errorCount++;
+            continue;
+          }
+
+          // Validate departure date is not in the future
+          const today = new Date();
+          if (departureDate > today) {
+            errors.push(`${worker.nom}: La date de sortie ne peut pas être dans le futur`);
+            errorCount++;
+            continue;
+          }
+
+          // Return all allocated items when worker exits
+          const returnedItems: AllocatedItem[] = [];
+          if (worker.allocatedItems && worker.allocatedItems.length > 0) {
+            for (const allocatedItem of worker.allocatedItems) {
+              if (allocatedItem.status === 'allocated') {
+                returnedItems.push({
+                  ...allocatedItem,
+                  status: 'returned',
+                  returnedAt: new Date().toISOString()
+                });
+              } else {
+                returnedItems.push(allocatedItem);
+              }
+            }
+          }
+
+          // Update worker with exit date
+          await updateDocument(worker.id, {
+            ...worker,
+            dateSortie: departureDateInfo.date,
+            motif: departureDateInfo.reason === 'none' ? undefined : departureDateInfo.reason,
+            statut: 'inactif',
+            allocatedItems: returnedItems
+          });
+
+          // Update worker history
+          const updatedHistory = [...(worker.workHistory || [])];
+          const currentPeriodIndex = updatedHistory.findIndex(period =>
+            period.dateEntree === worker.dateEntree && !period.dateSortie
+          );
+
+          if (currentPeriodIndex !== -1) {
+            updatedHistory[currentPeriodIndex] = {
+              ...updatedHistory[currentPeriodIndex],
+              dateSortie: departureDateInfo.date,
+              motif: departureDateInfo.reason === 'none' ? undefined : departureDateInfo.reason
+            };
+          } else {
+            updatedHistory.push({
+              id: `exit_${Date.now()}_${worker.id}`,
+              dateEntree: worker.dateEntree,
+              dateSortie: departureDateInfo.date,
+              motif: departureDateInfo.reason === 'none' ? undefined : departureDateInfo.reason,
+              chambre: worker.chambre,
+              secteur: worker.secteur,
+              fermeId: worker.fermeId
+            });
+          }
+
+          // Update with work history
+          await updateDocument(worker.id, {
+            workHistory: updatedHistory
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`❌ Error setting departure date for worker ${worker.nom}:`, error);
+          errors.push(`${worker.nom}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        showNotification({
+          title: `${successCount} ouvrier(s) marqué(s) comme sortis`,
+          description: `Les articles alloués ont été retournés automatiquement`,
+          variant: "success"
+        });
+      }
+
+      if (errorCount > 0) {
+        showNotification({
+          title: `${errorCount} erreur(s)`,
+          description: errors.slice(0, 3).join('\n') + (errors.length > 3 ? `\n... et ${errors.length - 3} autres` : ''),
+          variant: "destructive"
+        });
+      }
+
+      // Close dialog and clear selection
+      setIsBulkDepartureDateDialogOpen(false);
+      if (successCount > 0) {
+        clearSelection();
+      }
+    } catch (error) {
+      console.error('❌ Error during bulk departure date update:', error);
+      showNotification({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la mise à jour des dates de sortie",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateWorkerTransfer = async () => {
     if (selectedWorkers.size === 0 || !transferFormData.toFermeId) return;
 
