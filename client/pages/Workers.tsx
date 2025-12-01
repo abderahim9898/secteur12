@@ -4601,6 +4601,15 @@ export default function Workers() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={handleBulkAllocateOpen}
+                    className="text-purple-600 hover:text-purple-700 border-purple-200 h-9 text-sm"
+                  >
+                    <Package className="mr-2 h-4 w-4" />
+                    Articles
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleBulkTransfer}
                     className="text-green-600 hover:text-green-700 border-green-200 h-9 text-sm"
                   >
