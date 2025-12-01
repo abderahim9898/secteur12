@@ -5670,6 +5670,123 @@ export default function Workers() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Departure Date Dialog */}
+      <Dialog open={isBulkDepartureDateDialogOpen} onOpenChange={setIsBulkDepartureDateDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-2xl mx-2 sm:mx-auto max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ajouter des Dates de Sortie</DialogTitle>
+            <DialogDescription>
+              Entrez la date de sortie et le motif pour {selectedWorkers.size} ouvrier(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Workers list with date and reason inputs */}
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto border rounded-lg p-4 bg-gray-50">
+              {allWorkers.filter(w => selectedWorkers.has(w.id)).map(worker => {
+                const workerData = bulkDepartureDates[worker.id];
+                const minDate = worker.dateEntree;
+
+                return (
+                  <div key={worker.id} className="border rounded p-3 bg-white space-y-2">
+                    <div className="font-medium text-sm">
+                      {worker.nom}
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Entrée: {new Date(worker.dateEntree).toLocaleDateString('fr-FR')})
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor={`date-${worker.id}`} className="text-xs">
+                          Date de sortie
+                        </Label>
+                        <Input
+                          id={`date-${worker.id}`}
+                          type="date"
+                          value={workerData?.date || ''}
+                          onChange={(e) => {
+                            setBulkDepartureDates(prev => ({
+                              ...prev,
+                              [worker.id]: {
+                                ...prev[worker.id],
+                                date: e.target.value
+                              }
+                            }));
+                          }}
+                          min={minDate}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="text-sm"
+                        />
+                        {workerData?.date && new Date(workerData.date) < new Date(minDate) && (
+                          <p className="text-xs text-red-600 mt-1">
+                            La date doit être après {new Date(minDate).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label htmlFor={`reason-${worker.id}`} className="text-xs">
+                          Motif de sortie
+                        </Label>
+                        <Select
+                          value={workerData?.reason || 'none'}
+                          onValueChange={(value) => {
+                            setBulkDepartureDates(prev => ({
+                              ...prev,
+                              [worker.id]: {
+                                ...prev[worker.id],
+                                reason: value
+                              }
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="text-sm">
+                            <SelectValue placeholder="Sélectionner un motif" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Aucun motif</SelectItem>
+                            <SelectItem value="démission">Démission</SelectItem>
+                            <SelectItem value="licenciement">Licenciement</SelectItem>
+                            <SelectItem value="fin contrat">Fin contrat</SelectItem>
+                            <SelectItem value="transfert">Transfert</SelectItem>
+                            <SelectItem value="retraite">Retraite</SelectItem>
+                            <SelectItem value="maladie">Maladie</SelectItem>
+                            <SelectItem value="autre">Autre</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setIsBulkDepartureDateDialogOpen(false)}
+                disabled={loading}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleBulkDepartureDateConfirm}
+                disabled={loading || Object.values(bulkDepartureDates).every(d => !d.date)}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <Calendar className="mr-2 h-4 w-4" />
+                )}
+                Confirmer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
