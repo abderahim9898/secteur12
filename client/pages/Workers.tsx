@@ -2521,13 +2521,13 @@ export default function Workers() {
         try {
           // Get current allocated items
           const currentAllocated = new Set(
-            (worker.allocatedItems || [])
+            (Array.isArray(worker.allocatedItems) ? worker.allocatedItems : [])
               .filter(item => item.status === 'allocated')
               .map(item => item.itemName)
           );
 
           // Create updated items list
-          const updatedItems: AllocatedItem[] = [...(worker.allocatedItems || [])];
+          const updatedItems: AllocatedItem[] = [...(Array.isArray(worker.allocatedItems) ? worker.allocatedItems : [])];
 
           // Add new allocations
           for (const itemName of itemsToAllocate) {
