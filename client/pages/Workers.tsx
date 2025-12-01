@@ -2924,7 +2924,7 @@ export default function Workers() {
           const newWorkerRef = doc(collection(db, 'workers'));
 
           // Process allocated items and track stock deductions
-          if (workerData.allocatedItems && workerData.allocatedItems.length > 0) {
+          if (Array.isArray(workerData.allocatedItems) && workerData.allocatedItems.length > 0) {
             // Update allocated items with proper IDs
             const updatedAllocatedItems = workerData.allocatedItems.map(item => ({
               ...item,
@@ -2939,6 +2939,9 @@ export default function Workers() {
             });
 
             workerData.allocatedItems = updatedAllocatedItems;
+          } else {
+            // Ensure allocatedItems is an array
+            workerData.allocatedItems = [];
           }
 
           batch.set(newWorkerRef, {
