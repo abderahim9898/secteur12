@@ -5433,6 +5433,79 @@ export default function Workers() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Allocation Dialog */}
+      <Dialog open={isAllocationDialogOpen} onOpenChange={setIsAllocationDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-2 sm:mx-auto">
+          <DialogHeader>
+            <DialogTitle>Allouer des Articles</DialogTitle>
+            <DialogDescription>
+              Allouer des articles à {selectedWorkers.size} ouvrier(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Article Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Sélectionner les articles à allouer:</Label>
+              <div className="space-y-2 border rounded-lg p-4 bg-gray-50">
+                {['EPONGE', 'LIT', 'PLACARD'].map((itemName) => (
+                  <div key={itemName} className="flex items-center">
+                    <Checkbox
+                      id={`alloc-${itemName}`}
+                      checked={allocationFormData[itemName as keyof typeof allocationFormData]}
+                      onCheckedChange={(checked) =>
+                        setAllocationFormData(prev => ({
+                          ...prev,
+                          [itemName]: !!checked
+                        }))
+                      }
+                    />
+                    <Label htmlFor={`alloc-${itemName}`} className="ml-3 cursor-pointer font-medium">
+                      {itemName}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview of selected workers */}
+            <div className="border rounded-lg p-3 max-h-32 overflow-y-auto">
+              <Label className="text-sm font-medium">Ouvriers affectés:</Label>
+              <div className="space-y-1 mt-2">
+                {allWorkers.filter(w => selectedWorkers.has(w.id)).map(worker => (
+                  <div key={worker.id} className="text-sm text-gray-600 flex justify-between">
+                    <span>{worker.nom}</span>
+                    <span className="text-xs">{worker.sexe === 'homme' ? 'H' : 'F'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsAllocationDialogOpen(false)}
+                disabled={loading}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleBulkAllocateConfirm}
+                disabled={loading || !Object.values(allocationFormData).some(v => v)}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <Package className="mr-2 h-4 w-4" />
+                )}
+                Confirmer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
