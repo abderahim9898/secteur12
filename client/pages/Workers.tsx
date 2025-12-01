@@ -2479,6 +2479,118 @@ export default function Workers() {
     setIsTransferDialogOpen(true);
   };
 
+  const handleBulkAllocateOpen = () => {
+    if (selectedWorkers.size === 0) return;
+    // Reset form data for bulk allocation
+    setAllocationFormData({
+      EPONGE: false,
+      LIT: false,
+      PLACARD: false
+    });
+    setIsAllocationDialogOpen(true);
+  };
+
+  const handleBulkAllocateConfirm = async () => {
+    if (selectedWorkers.size === 0) return;
+
+    try {
+      setLoading(true);
+      const selectedWorkersArray = Array.from(allWorkers.filter(w => selectedWorkers.has(w.id)));
+
+      // Get items to allocate
+      const itemsToAllocate = Object.entries(allocationFormData)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([itemName, _]) => itemName);
+
+      if (itemsToAllocate.length === 0) {
+        showNotification({
+          title: "Aucun article sélectionné",
+          description: "Veuillez sélectionner au moins un article à allouer",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each selected worker
+      for (const worker of selectedWorkersArray) {
+        try {
+          // Get current allocated items
+          const currentAllocated = new Set(
+            (worker.allocatedItems || [])
+              .filter(item => item.status === 'allocated')
+              .map(item => item.itemName)
+          );
+
+          // Create updated items list
+          const updatedItems: AllocatedItem[] = [...(worker.allocatedItems || [])];
+
+          // Add new allocations
+          for (const itemName of itemsToAllocate) {
+            if (!currentAllocated.has(itemName)) {
+              // This is a new allocation
+              const stock = getStockByItemName(itemName, worker.fermeId);
+              if (stock) {
+                updatedItems.push({
+                  id: `alloc_${Date.now()}_${itemName}_${worker.id}`,
+                  itemName,
+                  allocatedAt: new Date().toISOString(),
+                  allocatedBy: user?.uid || '',
+                  stockItemId: stock.id,
+                  fermeId: worker.fermeId,
+                  status: 'allocated'
+                });
+              }
+            }
+          }
+
+          // Update worker with new allocations
+          await updateDocument(worker.id, {
+            ...worker,
+            allocatedItems: updatedItems
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`❌ Error allocating items to worker ${worker.nom}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        showNotification({
+          title: `${successCount} ouvrier(s) mis à jour`,
+          description: `Articles alloués: ${itemsToAllocate.join(', ')}`,
+          variant: "success"
+        });
+      }
+
+      if (errorCount > 0) {
+        showNotification({
+          title: `Erreur`,
+          description: `${errorCount} ouvrier(s) n'ont pas pu être mis à jour`,
+          variant: "destructive"
+        });
+      }
+
+      // Close dialog and clear selection
+      setIsAllocationDialogOpen(false);
+      clearSelection();
+    } catch (error) {
+      console.error('❌ Error during bulk allocation:', error);
+      showNotification({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'allocation",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateWorkerTransfer = async () => {
     if (selectedWorkers.size === 0 || !transferFormData.toFermeId) return;
 
