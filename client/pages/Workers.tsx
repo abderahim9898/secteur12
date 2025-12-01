@@ -185,11 +185,17 @@ export default function Workers() {
   const [viewHistoryWorker, setViewHistoryWorker] = useState<Worker | null>(null);
   const [isMotifOpen, setIsMotifOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isAllocationDialogOpen, setIsAllocationDialogOpen] = useState(false);
   const [transferFormData, setTransferFormData] = useState({
     toFermeId: '',
     notes: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent'
+  });
+  const [allocationFormData, setAllocationFormData] = useState({
+    EPONGE: false,
+    LIT: false,
+    PLACARD: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
