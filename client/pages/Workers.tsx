@@ -5696,7 +5696,7 @@ export default function Workers() {
                 return (
                   <div key={worker.id} className="border rounded p-3 bg-white space-y-2">
                     <div className="font-medium text-sm">
-                      {worker.matricule}-{worker.nom}
+                      {worker.matricule} - {worker.nom}
                       <span className="text-xs text-gray-500 ml-2">
                         (Entrée: {new Date(worker.dateEntree).toLocaleDateString('fr-FR')})
                       </span>
