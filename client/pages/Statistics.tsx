@@ -3890,19 +3890,17 @@ export default function Statistics() {
                               count: count,
                               fullReason: reason
                             }))}
-                          margin={{ top: 20, right: 30, left: 0, bottom: 80 }}
+                          margin={{ top: 20, right: 30, left: 60, bottom: 100 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis
                             dataKey="motif"
                             angle={-45}
                             textAnchor="end"
-                            height={120}
-                            tick={{ fontSize: 12 }}
+                            height={100}
                           />
                           <YAxis
                             label={{ value: 'Nombre de Cas', angle: -90, position: 'insideLeft' }}
-                            tick={{ fontSize: 12 }}
                           />
                           <Tooltip
                             formatter={(value) => [`${value} départs`, 'Nombre']}
