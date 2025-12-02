@@ -4757,63 +4757,50 @@ export default function Workers() {
                       <span className="ml-1 text-green-600 font-semibold">(Tous)</span>
                     )}
                   </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkExport}
-                    className="text-blue-600 hover:text-blue-700 border-blue-200 h-9 text-sm"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Exporter
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkAllocateOpen}
-                    className="text-purple-600 hover:text-purple-700 border-purple-200 h-9 text-sm"
-                  >
-                    <Package className="mr-2 h-4 w-4" />
-                    Articles
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkDepartureDateOpen}
-                    className="text-orange-600 hover:text-orange-700 border-orange-200 h-9 text-sm"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Sorties
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkTransfer}
-                    className="text-green-600 hover:text-green-700 border-green-200 h-9 text-sm"
-                  >
-                    <Send className="mr-2 h-4 w-4" />
-                    Transférer
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkDelete}
-                    disabled={loading}
-                    className="text-red-600 hover:text-red-700 border-red-200 h-9 text-sm"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-2"></div>
-                    ) : (
-                      <Trash2 className="mr-2 h-3 w-3" />
-                    )}
-                    Supprimer
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-sm"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handleBulkExport}>
+                        <Download className="mr-2 h-4 w-4 text-blue-600" />
+                        <span>Exporter</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkAllocateOpen}>
+                        <Package className="mr-2 h-4 w-4 text-purple-600" />
+                        <span>Articles</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkDepartureDateOpen}>
+                        <Calendar className="mr-2 h-4 w-4 text-orange-600" />
+                        <span>Sorties</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkTransfer}>
+                        <Send className="mr-2 h-4 w-4 text-green-600" />
+                        <span>Transférer</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleBulkDelete}
+                        disabled={loading}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Supprimer</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={clearSelection}
-                    className="text-gray-600 hover:text-gray-700"
+                    className="text-gray-600 hover:text-gray-700 h-9"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-4 w-4" />
                   </Button>
                 </>
               )}
