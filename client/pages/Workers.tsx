@@ -132,7 +132,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
-  Send
+  Send,
+  MoreVertical
 } from 'lucide-react';
 import { Worker, Ferme, Room, User, StockItem, AllocatedItem, WorkerTransfer } from '@shared/types';
 import * as XLSX from 'xlsx';
