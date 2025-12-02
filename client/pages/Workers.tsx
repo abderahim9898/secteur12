@@ -45,6 +45,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Enhanced sync function that automatically clears inactive workers from rooms
 const syncInactiveWorkersFromRooms = async (workers: Worker[], rooms: Room[], updateRoom: any) => {
