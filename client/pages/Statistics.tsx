@@ -3897,7 +3897,6 @@ export default function Statistics() {
                             dataKey="motif"
                             angle={-45}
                             textAnchor="end"
-                            height={100}
                           />
                           <YAxis
                             label={{ value: 'Nombre de Cas', angle: -90, position: 'insideLeft' }}
