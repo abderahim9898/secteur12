@@ -3914,6 +3914,14 @@ export default function Statistics() {
                             dataKey="count"
                             fill="#EF4444"
                             radius={[8, 8, 0, 0]}
+                            onClick={(data) => {
+                              showNotification({
+                                title: 'Motif de Sortie',
+                                description: data.motif,
+                                variant: 'default'
+                              });
+                            }}
+                            style={{ cursor: 'pointer' }}
                           >
                             {Object.entries(statistics.exitReasons)
                               .sort(([,a], [,b]) => b - a)
