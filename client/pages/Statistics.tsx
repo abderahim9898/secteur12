@@ -3915,24 +3915,37 @@ export default function Statistics() {
                             dataKey="count"
                             fill="#EF4444"
                             radius={[8, 8, 0, 0]}
-                            onClick={(data) => {
-                              showNotification({
-                                title: 'Motif de Sortie',
-                                description: data.motif,
-                                variant: 'default'
-                              });
-                            }}
-                            style={{ cursor: 'pointer' }}
                           >
                             {Object.entries(statistics.exitReasons)
                               .sort(([,a], [,b]) => b - a)
                               .slice(0, 10)
-                              .map((_, index) => (
-                                <Cell key={`cell-${index}`} fill={[
-                                  '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6',
-                                  '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F59E0B'
-                                ][index % 10]} />
-                              ))}
+                              .map((_, index) => {
+                                const chartData = Object.entries(statistics.exitReasons)
+                                  .sort(([,a], [,b]) => b - a)
+                                  .slice(0, 10);
+
+                                return (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={[
+                                      '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6',
+                                      '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F59E0B'
+                                    ][index % 10]}
+                                    onClick={() => {
+                                      const motifData = chartData[index];
+                                      if (motifData) {
+                                        const motifLabel = getMotifLabel(motifData[0]);
+                                        showNotification({
+                                          title: 'Motif de Sortie',
+                                          description: motifLabel,
+                                          variant: 'default'
+                                        });
+                                      }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                  />
+                                );
+                              })}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
