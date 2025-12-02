@@ -3894,11 +3894,13 @@ export default function Statistics() {
                         >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis
+                            xAxisId={0}
                             dataKey="motif"
                             angle={-45}
                             textAnchor="end"
                           />
                           <YAxis
+                            yAxisId={0}
                             label={{ value: 'Nombre de Cas', angle: -90, position: 'insideLeft' }}
                           />
                           <Tooltip
@@ -3907,6 +3909,8 @@ export default function Statistics() {
                             contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #ccc' }}
                           />
                           <Bar
+                            xAxisId={0}
+                            yAxisId={0}
                             dataKey="count"
                             fill="#EF4444"
                             radius={[8, 8, 0, 0]}
