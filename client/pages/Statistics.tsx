@@ -114,7 +114,7 @@ import { getMotifLabel } from '@/shared/motifs';
 export default function Statistics() {
   const navigate = useNavigate();
   const { user, isSuperAdmin, isUser, hasAllFarmsAccess } = useAuth();
-
+  const { showNotification } = useNotifications();
 
   const { data: fermes, error: fermesError, refetch: refetchFermes } = useFirestore<Ferme>('fermes');
   const { data: allWorkers, error: workersError, refetch: refetchWorkers } = useFirestore<Worker>('workers');
