@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFirestore } from '@/hooks/useFirestore';
 import { useSupervisors } from '@/hooks/useSupervisors';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,7 +114,7 @@ import { getMotifLabel } from '@/shared/motifs';
 export default function Statistics() {
   const navigate = useNavigate();
   const { user, isSuperAdmin, isUser, hasAllFarmsAccess } = useAuth();
-
+  const { showNotification } = useNotifications();
 
   const { data: fermes, error: fermesError, refetch: refetchFermes } = useFirestore<Ferme>('fermes');
   const { data: allWorkers, error: workersError, refetch: refetchWorkers } = useFirestore<Worker>('workers');
@@ -3873,47 +3874,80 @@ export default function Statistics() {
               <Card className="border-0 shadow-sm bg-white">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <PieChart className="mr-2 h-5 w-5 text-red-600" />
-                    Motifs de Sortie
+                    <BarChartIcon className="mr-2 h-5 w-5 text-red-600" />
+                    Motifs de Sortie (Top 10)
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {Object.keys(statistics.exitReasons).length > 0 ? (
                     <div id="exit-reasons-chart" className="h-64">
                       <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={240}>
-                        <RechartsPieChart>
-                          <Pie
-                            data={Object.entries(statistics.exitReasons)
-                              .sort(([,a], [,b]) => b - a)
-                              .map(([reason, count], index) => ({
-                                name: getMotifLabel(reason),
-                                value: count,
-                                fill: [
-                                  '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6',
-                                  '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F59E0B'
-                                ][index % 10]
-                              }))}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => percent > 5 ? `${name}: ${(percent * 100).toFixed(0)}%` : ''}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
-                            {Object.entries(statistics.exitReasons).map((_, index) => (
-                              <Cell key={`cell-${index}`} fill={[
-                                '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6',
-                                '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F59E0B'
-                              ][index % 10]} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            formatter={(value, name) => [`${value} departs`, name]}
-                            labelFormatter={(name) => `Motif: ${name}`}
+                        <BarChart
+                          data={Object.entries(statistics.exitReasons)
+                            .sort(([,a], [,b]) => b - a)
+                            .slice(0, 10)
+                            .map(([reason, count]) => ({
+                              motif: getMotifLabel(reason),
+                              count: count,
+                              fullReason: reason
+                            }))}
+                          margin={{ top: 20, right: 30, left: 60, bottom: 100 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            xAxisId={0}
+                            dataKey="motif"
+                            angle={-45}
+                            textAnchor="end"
                           />
-                          <Legend />
-                        </RechartsPieChart>
+                          <YAxis
+                            yAxisId={0}
+                            label={{ value: 'Nombre de Cas', angle: -90, position: 'insideLeft' }}
+                          />
+                          <Tooltip
+                            formatter={(value) => [`${value} départs`, 'Nombre']}
+                            labelFormatter={(label) => `Motif: ${label}`}
+                            contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #ccc' }}
+                          />
+                          <Bar
+                            xAxisId={0}
+                            yAxisId={0}
+                            dataKey="count"
+                            fill="#EF4444"
+                            radius={[8, 8, 0, 0]}
+                          >
+                            {Object.entries(statistics.exitReasons)
+                              .sort(([,a], [,b]) => b - a)
+                              .slice(0, 10)
+                              .map((_, index) => {
+                                const chartData = Object.entries(statistics.exitReasons)
+                                  .sort(([,a], [,b]) => b - a)
+                                  .slice(0, 10);
+
+                                return (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={[
+                                      '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6',
+                                      '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F59E0B'
+                                    ][index % 10]}
+                                    onClick={() => {
+                                      const motifData = chartData[index];
+                                      if (motifData) {
+                                        const motifLabel = getMotifLabel(motifData[0]);
+                                        showNotification({
+                                          title: 'Motif de Sortie',
+                                          description: motifLabel,
+                                          variant: 'default'
+                                        });
+                                      }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                  />
+                                );
+                              })}
+                          </Bar>
+                        </BarChart>
                       </ResponsiveContainer>
                     </div>
                   ) : (

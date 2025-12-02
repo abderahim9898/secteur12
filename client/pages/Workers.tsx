@@ -45,6 +45,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Enhanced sync function that automatically clears inactive workers from rooms
 const syncInactiveWorkersFromRooms = async (workers: Worker[], rooms: Room[], updateRoom: any) => {
@@ -126,7 +132,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
-  Send
+  Send,
+  MoreVertical
 } from 'lucide-react';
 import { Worker, Ferme, Room, User, StockItem, AllocatedItem, WorkerTransfer } from '@shared/types';
 import * as XLSX from 'xlsx';
@@ -185,12 +192,20 @@ export default function Workers() {
   const [viewHistoryWorker, setViewHistoryWorker] = useState<Worker | null>(null);
   const [isMotifOpen, setIsMotifOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isAllocationDialogOpen, setIsAllocationDialogOpen] = useState(false);
   const [transferFormData, setTransferFormData] = useState({
     toFermeId: '',
     notes: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent'
   });
+  const [allocationFormData, setAllocationFormData] = useState({
+    EPONGE: false,
+    LIT: false,
+    PLACARD: false
+  });
+  const [isBulkDepartureDateDialogOpen, setIsBulkDepartureDateDialogOpen] = useState(false);
+  const [bulkDepartureDates, setBulkDepartureDates] = useState<{[workerId: string]: {date: string, reason: string}}>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [autoFilledWorker, setAutoFilledWorker] = useState<string>(''); // Name of auto-filled worker
@@ -511,7 +526,9 @@ export default function Workers() {
   // Filter workers based on user role and filters
   const filteredWorkers = allWorkers.filter(worker => {
     // Role-based filtering
-    if (!isSuperAdmin && user?.fermeId) {
+    // Show all workers if: superadmin OR admin with all-farms access
+    // Otherwise, show only workers from the user's assigned farm
+    if (!isSuperAdmin && user?.fermeId && user.fermeId !== 'all') {
       if (worker.fermeId !== user.fermeId) return false;
     }
 
@@ -954,6 +971,78 @@ export default function Workers() {
           dateEntree: formData.dateEntree || editingWorker.dateEntree
         };
 
+        // Process allocated items changes during edit
+        const processAllocatedItemsChanges = () => {
+          const editingWorkerAllocations = Array.isArray(editingWorker.allocatedItems) ? editingWorker.allocatedItems : [];
+
+          const currentAllocated = new Set(
+            editingWorkerAllocations
+              .filter(item => item.status === 'allocated')
+              .map(item => item.itemName)
+          );
+
+          const newAllocated = new Set(
+            Object.entries(formData.allocatedItems)
+              .filter(([_, isAllocated]) => isAllocated)
+              .map(([itemName, _]) => itemName)
+          );
+
+          const updatedItems: AllocatedItem[] = [];
+
+          // Process all existing items
+          for (const item of editingWorkerAllocations) {
+            if (item.status === 'returned') {
+              // Keep returned items as is
+              updatedItems.push(item);
+            } else if (item.status === 'allocated') {
+              // Check if this item is still selected
+              if (newAllocated.has(item.itemName)) {
+                // Keep allocated item
+                updatedItems.push(item);
+              } else {
+                // Mark as returned (user unchecked it)
+                updatedItems.push({
+                  ...item,
+                  status: 'returned',
+                  returnedAt: new Date().toISOString()
+                });
+              }
+            } else {
+              updatedItems.push(item);
+            }
+          }
+
+          // Add new allocations (items that are now selected but weren't before)
+          for (const itemName of newAllocated) {
+            if (!currentAllocated.has(itemName)) {
+              // This is a new allocation
+              const stock = getStockByItemName(itemName, formData.fermeId || editingWorker.fermeId);
+              if (stock) {
+                updatedItems.push({
+                  id: `alloc_${Date.now()}_${itemName}`,
+                  itemName,
+                  allocatedAt: new Date().toISOString(),
+                  allocatedBy: user?.uid || '',
+                  stockItemId: stock.id,
+                  fermeId: formData.fermeId || editingWorker.fermeId,
+                  status: 'allocated'
+                });
+              }
+            }
+          }
+
+          return updatedItems;
+        };
+
+        // Apply allocated items changes
+        updateData.allocatedItems = processAllocatedItemsChanges();
+        console.log('📦 Allocated items updated during edit:', {
+          total: updateData.allocatedItems.length,
+          allocated: updateData.allocatedItems.filter(i => i.status === 'allocated').length,
+          returned: updateData.allocatedItems.filter(i => i.status === 'returned').length,
+          items: updateData.allocatedItems.map(i => ({ itemName: i.itemName, status: i.status }))
+        });
+
         // Check if entry date has been modified
         const entryDateChanged = formData.dateEntree && formData.dateEntree !== editingWorker.dateEntree;
 
@@ -1020,11 +1109,11 @@ export default function Workers() {
           updateData.dateSortie = formData.dateSortie;
           updateData.statut = 'inactif'; // Automatically set to inactive when exit date is added
 
-          // Return allocated items to stock when worker exits
-          if (editingWorker.allocatedItems && editingWorker.allocatedItems.length > 0) {
+          // Return all allocated items when worker exits
+          if (Array.isArray(updateData.allocatedItems) && updateData.allocatedItems.length > 0) {
             const returnedItems: AllocatedItem[] = [];
 
-            for (const allocatedItem of editingWorker.allocatedItems) {
+            for (const allocatedItem of updateData.allocatedItems) {
               if (allocatedItem.status === 'allocated') {
                 // Mark item as returned
                 returnedItems.push({
@@ -2401,6 +2490,272 @@ export default function Workers() {
     setIsTransferDialogOpen(true);
   };
 
+  const handleBulkAllocateOpen = () => {
+    if (selectedWorkers.size === 0) return;
+    // Reset form data for bulk allocation
+    setAllocationFormData({
+      EPONGE: false,
+      LIT: false,
+      PLACARD: false
+    });
+    setIsAllocationDialogOpen(true);
+  };
+
+  const handleBulkAllocateConfirm = async () => {
+    if (selectedWorkers.size === 0) return;
+
+    try {
+      setLoading(true);
+      const selectedWorkersArray = Array.from(allWorkers.filter(w => selectedWorkers.has(w.id)));
+
+      // Get items to allocate
+      const itemsToAllocate = Object.entries(allocationFormData)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([itemName, _]) => itemName);
+
+      if (itemsToAllocate.length === 0) {
+        showNotification({
+          title: "Aucun article sélectionné",
+          description: "Veuillez sélectionner au moins un article à allouer",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each selected worker
+      for (const worker of selectedWorkersArray) {
+        try {
+          // Get current allocated items
+          const currentAllocated = new Set(
+            (Array.isArray(worker.allocatedItems) ? worker.allocatedItems : [])
+              .filter(item => item.status === 'allocated')
+              .map(item => item.itemName)
+          );
+
+          // Create updated items list
+          const updatedItems: AllocatedItem[] = [...(Array.isArray(worker.allocatedItems) ? worker.allocatedItems : [])];
+
+          // Add new allocations
+          for (const itemName of itemsToAllocate) {
+            if (!currentAllocated.has(itemName)) {
+              // This is a new allocation
+              const stock = getStockByItemName(itemName, worker.fermeId);
+              if (stock) {
+                updatedItems.push({
+                  id: `alloc_${Date.now()}_${itemName}_${worker.id}`,
+                  itemName,
+                  allocatedAt: new Date().toISOString(),
+                  allocatedBy: user?.uid || '',
+                  stockItemId: stock.id,
+                  fermeId: worker.fermeId,
+                  status: 'allocated'
+                });
+              }
+            }
+          }
+
+          // Update worker with new allocations
+          await updateDocument(worker.id, {
+            ...worker,
+            allocatedItems: updatedItems
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`❌ Error allocating items to worker ${worker.nom}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        showNotification({
+          title: `${successCount} ouvrier(s) mis à jour`,
+          description: `Articles alloués: ${itemsToAllocate.join(', ')}`,
+          variant: "success"
+        });
+      }
+
+      if (errorCount > 0) {
+        showNotification({
+          title: `Erreur`,
+          description: `${errorCount} ouvrier(s) n'ont pas pu être mis à jour`,
+          variant: "destructive"
+        });
+      }
+
+      // Close dialog and clear selection
+      setIsAllocationDialogOpen(false);
+      clearSelection();
+    } catch (error) {
+      console.error('❌ Error during bulk allocation:', error);
+      showNotification({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'allocation",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkDepartureDateOpen = () => {
+    if (selectedWorkers.size === 0) return;
+
+    // Initialize departure dates form with empty values for each selected worker
+    const selectedWorkersArray = allWorkers.filter(w => selectedWorkers.has(w.id));
+    const newBulkDepartureDates: {[workerId: string]: {date: string, reason: string}} = {};
+
+    selectedWorkersArray.forEach(worker => {
+      newBulkDepartureDates[worker.id] = {
+        date: '',
+        reason: 'none'
+      };
+    });
+
+    setBulkDepartureDates(newBulkDepartureDates);
+    setIsBulkDepartureDateDialogOpen(true);
+  };
+
+  const handleBulkDepartureDateConfirm = async () => {
+    if (selectedWorkers.size === 0) return;
+
+    try {
+      setLoading(true);
+      const selectedWorkersArray = Array.from(allWorkers.filter(w => selectedWorkers.has(w.id)));
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Process each selected worker
+      for (const worker of selectedWorkersArray) {
+        try {
+          const departureDateInfo = bulkDepartureDates[worker.id];
+
+          // Skip if no date provided
+          if (!departureDateInfo || !departureDateInfo.date) {
+            continue;
+          }
+
+          const departureDate = new Date(departureDateInfo.date);
+          const entryDate = new Date(worker.dateEntree);
+
+          // Validate departure date is not before entry date
+          if (departureDate < entryDate) {
+            errors.push(`${worker.nom}: La date de sortie doit être après la date d'entrée (${new Date(worker.dateEntree).toLocaleDateString('fr-FR')})`);
+            errorCount++;
+            continue;
+          }
+
+          // Validate departure date is not in the future
+          const today = new Date();
+          if (departureDate > today) {
+            errors.push(`${worker.nom}: La date de sortie ne peut pas être dans le futur`);
+            errorCount++;
+            continue;
+          }
+
+          // Return all allocated items when worker exits
+          const returnedItems: AllocatedItem[] = [];
+          const allocatedItemsArray = Array.isArray(worker.allocatedItems) ? worker.allocatedItems : [];
+          if (allocatedItemsArray.length > 0) {
+            for (const allocatedItem of allocatedItemsArray) {
+              if (allocatedItem.status === 'allocated') {
+                returnedItems.push({
+                  ...allocatedItem,
+                  status: 'returned',
+                  returnedAt: new Date().toISOString()
+                });
+              } else {
+                returnedItems.push(allocatedItem);
+              }
+            }
+          }
+
+          // Update worker with exit date
+          await updateDocument(worker.id, {
+            ...worker,
+            dateSortie: departureDateInfo.date,
+            motif: departureDateInfo.reason === 'none' ? undefined : departureDateInfo.reason,
+            statut: 'inactif',
+            allocatedItems: returnedItems
+          });
+
+          // Update worker history
+          const updatedHistory = [...(worker.workHistory || [])];
+          const currentPeriodIndex = updatedHistory.findIndex(period =>
+            period.dateEntree === worker.dateEntree && !period.dateSortie
+          );
+
+          if (currentPeriodIndex !== -1) {
+            updatedHistory[currentPeriodIndex] = {
+              ...updatedHistory[currentPeriodIndex],
+              dateSortie: departureDateInfo.date,
+              motif: departureDateInfo.reason === 'none' ? undefined : departureDateInfo.reason
+            };
+          } else {
+            updatedHistory.push({
+              id: `exit_${Date.now()}_${worker.id}`,
+              dateEntree: worker.dateEntree,
+              dateSortie: departureDateInfo.date,
+              motif: departureDateInfo.reason === 'none' ? undefined : departureDateInfo.reason,
+              chambre: worker.chambre,
+              secteur: worker.secteur,
+              fermeId: worker.fermeId
+            });
+          }
+
+          // Update with work history
+          await updateDocument(worker.id, {
+            workHistory: updatedHistory
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`❌ Error setting departure date for worker ${worker.nom}:`, error);
+          errors.push(`${worker.nom}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        showNotification({
+          title: `${successCount} ouvrier(s) marqué(s) comme sortis`,
+          description: `Les articles alloués ont été retournés automatiquement`,
+          variant: "success"
+        });
+      }
+
+      if (errorCount > 0) {
+        showNotification({
+          title: `${errorCount} erreur(s)`,
+          description: errors.slice(0, 3).join('\n') + (errors.length > 3 ? `\n... et ${errors.length - 3} autres` : ''),
+          variant: "destructive"
+        });
+      }
+
+      // Close dialog and clear selection
+      setIsBulkDepartureDateDialogOpen(false);
+      if (successCount > 0) {
+        clearSelection();
+      }
+    } catch (error) {
+      console.error('❌ Error during bulk departure date update:', error);
+      showNotification({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la mise à jour des dates de sortie",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateWorkerTransfer = async () => {
     if (selectedWorkers.size === 0 || !transferFormData.toFermeId) return;
 
@@ -2576,7 +2931,7 @@ export default function Workers() {
           const newWorkerRef = doc(collection(db, 'workers'));
 
           // Process allocated items and track stock deductions
-          if (workerData.allocatedItems && workerData.allocatedItems.length > 0) {
+          if (Array.isArray(workerData.allocatedItems) && workerData.allocatedItems.length > 0) {
             // Update allocated items with proper IDs
             const updatedAllocatedItems = workerData.allocatedItems.map(item => ({
               ...item,
@@ -2591,6 +2946,9 @@ export default function Workers() {
             });
 
             workerData.allocatedItems = updatedAllocatedItems;
+          } else {
+            // Ensure allocatedItems is an array
+            workerData.allocatedItems = [];
           }
 
           batch.set(newWorkerRef, {
@@ -3574,6 +3932,7 @@ export default function Workers() {
                             }}
                             className="pl-10"
                             min={formData.dateEntree}
+                            max={new Date().toISOString().split('T')[0]}
                           />
                         </div>
                       </div>
@@ -4398,45 +4757,50 @@ export default function Workers() {
                       <span className="ml-1 text-green-600 font-semibold">(Tous)</span>
                     )}
                   </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkExport}
-                    className="text-blue-600 hover:text-blue-700 border-blue-200 h-9 text-sm"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Exporter
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkTransfer}
-                    className="text-green-600 hover:text-green-700 border-green-200 h-9 text-sm"
-                  >
-                    <Send className="mr-2 h-4 w-4" />
-                    Transférer
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkDelete}
-                    disabled={loading}
-                    className="text-red-600 hover:text-red-700 border-red-200 h-9 text-sm"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-2"></div>
-                    ) : (
-                      <Trash2 className="mr-2 h-3 w-3" />
-                    )}
-                    Supprimer
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-sm"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handleBulkExport}>
+                        <Download className="mr-2 h-4 w-4 text-blue-600" />
+                        <span>Exporter</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkAllocateOpen}>
+                        <Package className="mr-2 h-4 w-4 text-purple-600" />
+                        <span>Articles</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkDepartureDateOpen}>
+                        <Calendar className="mr-2 h-4 w-4 text-orange-600" />
+                        <span>Sorties</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkTransfer}>
+                        <Send className="mr-2 h-4 w-4 text-green-600" />
+                        <span>Transférer</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleBulkDelete}
+                        disabled={loading}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Supprimer</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={clearSelection}
-                    className="text-gray-600 hover:text-gray-700"
+                    className="text-gray-600 hover:text-gray-700 h-9"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-4 w-4" />
                   </Button>
                 </>
               )}
@@ -4525,13 +4889,29 @@ export default function Workers() {
                     </TableHeader>
                     <TableBody>
                       {paginatedWorkers.map((worker) => (
-                        <TableRow key={worker.id}>
+                        <TableRow
+                          key={worker.id}
+                          className={selectedWorkers.has(worker.id) ? 'bg-blue-50 hover:bg-blue-100' : ''}
+                        >
                           <TableCell>
-                            <Checkbox
-                              checked={selectedWorkers.has(worker.id)}
-                              onCheckedChange={(checked) => handleSelectWorker(worker.id, !!checked)}
-                              aria-label={`Sélectionner ${worker.nom}`}
-                            />
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={selectedWorkers.has(worker.id)}
+                                onCheckedChange={(checked) => handleSelectWorker(worker.id, !!checked)}
+                                aria-label={`Sélectionner ${worker.nom}`}
+                              />
+                              {selectedWorkers.has(worker.id) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(worker)}
+                                  className="h-8"
+                                  title="Modifier cet ouvrier"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>{worker.matricule || '-'}</TableCell>
                           <TableCell className="font-medium">{worker.nom}</TableCell>
@@ -5212,6 +5592,196 @@ export default function Workers() {
                   <Send className="mr-2 h-4 w-4" />
                 )}
                 Créer le transfert
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Allocation Dialog */}
+      <Dialog open={isAllocationDialogOpen} onOpenChange={setIsAllocationDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-2 sm:mx-auto">
+          <DialogHeader>
+            <DialogTitle>Allouer des Articles</DialogTitle>
+            <DialogDescription>
+              Allouer des articles à {selectedWorkers.size} ouvrier(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Article Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Sélectionner les articles à allouer:</Label>
+              <div className="space-y-2 border rounded-lg p-4 bg-gray-50">
+                {['EPONGE', 'LIT', 'PLACARD'].map((itemName) => (
+                  <div key={itemName} className="flex items-center">
+                    <Checkbox
+                      id={`alloc-${itemName}`}
+                      checked={allocationFormData[itemName as keyof typeof allocationFormData]}
+                      onCheckedChange={(checked) =>
+                        setAllocationFormData(prev => ({
+                          ...prev,
+                          [itemName]: !!checked
+                        }))
+                      }
+                    />
+                    <Label htmlFor={`alloc-${itemName}`} className="ml-3 cursor-pointer font-medium">
+                      {itemName}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview of selected workers */}
+            <div className="border rounded-lg p-3 max-h-32 overflow-y-auto">
+              <Label className="text-sm font-medium">Ouvriers affectés:</Label>
+              <div className="space-y-1 mt-2">
+                {allWorkers.filter(w => selectedWorkers.has(w.id)).map(worker => (
+                  <div key={worker.id} className="text-sm text-gray-600 flex justify-between">
+                    <span>{worker.nom}</span>
+                    <span className="text-xs">{worker.sexe === 'homme' ? 'H' : 'F'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsAllocationDialogOpen(false)}
+                disabled={loading}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleBulkAllocateConfirm}
+                disabled={loading || !Object.values(allocationFormData).some(v => v)}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <Package className="mr-2 h-4 w-4" />
+                )}
+                Confirmer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Departure Date Dialog */}
+      <Dialog open={isBulkDepartureDateDialogOpen} onOpenChange={setIsBulkDepartureDateDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-2xl mx-2 sm:mx-auto max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ajouter des Dates de Sortie</DialogTitle>
+            <DialogDescription>
+              Entrez la date de sortie et le motif pour {selectedWorkers.size} ouvrier(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Workers list with date and reason inputs */}
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto border rounded-lg p-4 bg-gray-50">
+              {allWorkers.filter(w => selectedWorkers.has(w.id)).map(worker => {
+                const workerData = bulkDepartureDates[worker.id];
+                const minDate = worker.dateEntree;
+
+                return (
+                  <div key={worker.id} className="border rounded p-3 bg-white space-y-2">
+                    <div className="font-medium text-sm">
+                      {worker.matricule} - {worker.nom}
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Entrée: {new Date(worker.dateEntree).toLocaleDateString('fr-FR')})
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor={`date-${worker.id}`} className="text-xs">
+                          Date de sortie
+                        </Label>
+                        <Input
+                          id={`date-${worker.id}`}
+                          type="date"
+                          value={workerData?.date || ''}
+                          onChange={(e) => {
+                            setBulkDepartureDates(prev => ({
+                              ...prev,
+                              [worker.id]: {
+                                ...prev[worker.id],
+                                date: e.target.value
+                              }
+                            }));
+                          }}
+                          min={minDate}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="text-sm"
+                        />
+                        {workerData?.date && new Date(workerData.date) < new Date(minDate) && (
+                          <p className="text-xs text-red-600 mt-1">
+                            La date doit être après {new Date(minDate).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label htmlFor={`reason-${worker.id}`} className="text-xs">
+                          Motif de sortie
+                        </Label>
+                        <Select
+                          value={workerData?.reason || 'none'}
+                          onValueChange={(value) => {
+                            setBulkDepartureDates(prev => ({
+                              ...prev,
+                              [worker.id]: {
+                                ...prev[worker.id],
+                                reason: value
+                              }
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="text-sm">
+                            <SelectValue placeholder="Sélectionner un motif" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Aucun motif</SelectItem>
+                            <SelectItem value="démission">Démission</SelectItem>
+                            <SelectItem value="licenciement">Licenciement</SelectItem>
+                            <SelectItem value="fin contrat">Fin contrat</SelectItem>
+                            <SelectItem value="transfert">Transfert</SelectItem>
+                            <SelectItem value="retraite">Retraite</SelectItem>
+                            <SelectItem value="maladie">Maladie</SelectItem>
+                            <SelectItem value="autre">Autre</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setIsBulkDepartureDateDialogOpen(false)}
+                disabled={loading}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleBulkDepartureDateConfirm}
+                disabled={loading || Object.values(bulkDepartureDates).every(d => !d.date)}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <Calendar className="mr-2 h-4 w-4" />
+                )}
+                Confirmer
               </Button>
             </div>
           </div>
